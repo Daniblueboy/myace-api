@@ -1,0 +1,392 @@
+generator client {
+  provider = "prisma-client-js"
+  engineType = "binary"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+  USER
+}
+
+enum PropertyType {
+  LAND
+  APARTMENT
+}
+
+enum PropertyStatus {
+  AVAILABLE
+  SOLD
+  UPCOMING
+}
+
+enum LeadType {
+  GENERAL
+  PROPERTY_ENQUIRY
+}
+
+enum PromoPlacement {
+  HERO_BANNER
+  TOP_STRIP
+  POPUP
+  SECTION_CARD
+}
+
+enum ComplianceType {
+  CAC_REGISTRATION
+  GOVT_CERTIFICATE
+  LEGAL_DOCUMENT
+  AWARD
+  OTHER
+}
+
+enum PartnerCategory {
+  CLIENT
+  PARTNER
+}
+
+enum PropertyMediaType {
+  VIDEO
+  FLYER
+  BROCHURE
+  OTHER
+}
+
+enum PropertySizeUnit {
+  SQM
+  PLOT
+  ACRE
+  ROOM
+}
+
+enum PaymentType {
+  OUTRIGHT
+  INSTALLMENT
+}
+
+model User {
+  id              String   @id @default(cuid())
+  name            String
+  email           String   @unique
+  passwordHash    String
+  role            Role     @default(USER)
+  themePreference String   @default("system") // "light", "dark", "system"
+  refreshTokenHash String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Property {
+  id          String         @id @default(uuid())
+  title       String
+  slug        String         @unique
+  description String
+  type        PropertyType
+  status      PropertyStatus @default(AVAILABLE)
+  price       Decimal        @db.Decimal(15, 2)
+  currency    String         @default("NGN")
+  size        String? // e.g. "600sqm" or "3 Bedroom"
+  bedrooms    Int?
+  bathrooms   Int?
+  amenities   String[]       @default([])
+  estateId    String?
+  estate      Estate?        @relation(fields: [estateId], references: [id], onDelete: SetNull)
+
+  state   String
+  city    String
+  address String
+
+  latitude    Float?
+  longitude   Float?
+  mapEmbedUrl String?
+
+  panoramaUrl String?
+  videoUrl    String?
+  featured    Boolean @default(false)
+
+  images    PropertyImage[]
+  faqs      PropertyFAQ[]
+  resources PropertyResource[]
+  variants  PropertyVariant[]
+  media     PropertyMedia[]
+  leads     LeadSubmission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+  @@index([state])
+  @@index([status])
+  @@index([type])
+  @@index([estateId])
+}
+
+model PropertyImage {
+  id         String   @id @default(uuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  url        String
+  altText    String?
+  sortOrder  Int      @default(0)
+}
+
+model PropertyFAQ {
+  id         String   @id @default(uuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  question   String
+  answer     String
+  sortOrder  Int      @default(0)
+}
+
+model PropertyResource {
+  id         String   @id @default(uuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  title      String
+  url        String
+  fileType   String // PDF, LINK, etc.
+  sortOrder  Int      @default(0)
+}
+
+model PropertyVariant {
+  id         String   @id @default(uuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  label      String   // e.g. "2 Bedroom", "3 Bedroom", "1 Plot", "2 Acres"
+  price      Decimal  @db.Decimal(15, 2)
+  currency   String   @default("NGN")
+  bedrooms   Int?
+  bathrooms  Int?
+  size       String?
+  sizeUnit   PropertySizeUnit?
+  paymentType PaymentType @default(OUTRIGHT)
+  upfrontPercent Int?
+  installmentMonths Int?
+  installmentAmount Decimal? @db.Decimal(15, 2)
+  sortOrder  Int      @default(0)
+  active     Boolean  @default(true)
+}
+
+model PropertyMedia {
+  id         String           @id @default(uuid())
+  propertyId String
+  property   Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  type       PropertyMediaType
+  title      String?
+  url        String
+  sortOrder  Int              @default(0)
+}
+
+model BlogPost {
+  id            String    @id @default(uuid())
+  title         String
+  slug          String    @unique
+  excerpt       String?
+  content       String    @db.Text
+  coverImageUrl String?
+  published     Boolean   @default(false)
+  publishedAt   DateTime?
+
+  categories BlogCategory[]
+  tags       BlogTag[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
+}
+
+model BlogCategory {
+  id    String     @id @default(uuid())
+  name  String     @unique
+  posts BlogPost[]
+}
+
+model BlogTag {
+  id    String     @id @default(uuid())
+  name  String     @unique
+  posts BlogPost[]
+}
+
+model OfficeLocation {
+  id           String   @id @default(uuid())
+  state        String
+  address      String
+  phones       String[]
+  emails       String[]
+  openingHours String?
+  latitude     Float?
+  longitude    Float?
+}
+
+model GeneralFAQ {
+  id        String @id @default(uuid())
+  question  String
+  answer    String
+  sortOrder Int    @default(0)
+}
+
+model GeneralResource {
+  id        String @id @default(uuid())
+  title     String
+  url       String
+  fileType  String
+  sortOrder Int    @default(0)
+  estateId  String?
+  estate    Estate? @relation(fields: [estateId], references: [id], onDelete: SetNull)
+}
+
+model LeadSubmission {
+  id          String   @id @default(uuid())
+  type        LeadType @default(GENERAL)
+  fullName    String
+  email       String
+  phone       String?
+  officeState String?
+  enquiryType String? // Inspection, Purchase, etc.
+  message     String?
+
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model PromoBanner {
+  id        String         @id @default(uuid())
+  title     String
+  message   String
+  details   String?
+  imageUrl  String?
+  videoUrl  String?
+  linkUrl   String?
+  placement PromoPlacement
+  priority  Int            @default(0)
+  active    Boolean        @default(true)
+  startDate DateTime?
+  endDate   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ComplianceItem {
+  id             String         @id @default(uuid())
+  type           ComplianceType
+  title          String
+  description    String?
+  registrationNo String?
+  issuedBy       String?
+  issueDate      DateTime?
+  expiryDate     DateTime?
+  fileUrl        String?
+  externalLink   String?
+  displayOnHome  Boolean        @default(false)
+  displayOrder   Int            @default(0)
+  active         Boolean        @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PartnerLogo {
+  id           String          @id @default(uuid())
+  name         String
+  logoUrl      String
+  websiteUrl   String?
+  category     PartnerCategory @default(PARTNER)
+  displayOrder Int             @default(0)
+  active       Boolean         @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ContentBlock {
+  id           String  @id @default(uuid())
+  key          String  @unique // e.g., "home_hero_title", "about_intro"
+  section      String // "HOME", "ABOUT", "SERVICES", "CONTACT"
+  title        String
+  content      String  @db.Text
+  imageUrl     String?
+  ctaText      String?
+  ctaUrl       String?
+  displayOrder Int     @default(0)
+  active       Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Estate {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?
+  state       String
+  city        String
+  address     String?
+  coverImage  String?
+  videoUrl    String?
+  gallery     String[] @default([])
+  brochureUrl String?
+  status      String   @default("ACTIVE")
+  amenities   String[] @default([])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  properties Property[]
+  faqs       EstateFAQ[]
+  resources  GeneralResource[]
+
+  @@index([slug])
+  @@index([state])
+}
+
+model EstateFAQ {
+  id        String  @id @default(uuid())
+  estateId  String
+  estate    Estate  @relation(fields: [estateId], references: [id], onDelete: Cascade)
+  question  String
+  answer    String
+  sortOrder Int     @default(0)
+}
+
+model NewsletterSubscriber {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}
+
+model TeamMember {
+  id           String  @id @default(uuid())
+  name         String
+  role         String
+  bio          String?
+  photoUrl     String?
+  email        String?
+  linkedinUrl  String?
+  instagramUrl String?
+  displayOrder Int     @default(0)
+  active       Boolean @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Testimonial {
+  id           String  @id @default(uuid())
+  name         String
+  role         String?
+  message      String
+  rating       Int? // 1-5
+  photoUrl     String?
+  displayOrder Int    @default(0)
+  active       Boolean @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
