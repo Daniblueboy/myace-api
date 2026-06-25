@@ -5,6 +5,14 @@ import * as bcrypt from 'bcrypt';
 import { User } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 
+function getRequiredRefreshSecret(configService: ConfigService) {
+  const secret = configService.get<string>('JWT_REFRESH_SECRET');
+  if (!secret && process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_REFRESH_SECRET is required in production');
+  }
+  return secret || 'refreshSecret';
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -26,7 +34,7 @@ export class AuthService {
     const payload = { email: user.email, sub: user.id, role: user.role };
     const accessToken = this.jwtService.sign(payload);
     const refreshToken = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('JWT_REFRESH_SECRET') || 'refreshSecret',
+      secret: getRequiredRefreshSecret(this.configService),
       expiresIn: '7d',
     });
     await this.usersService.updateRefreshTokenHash(user.id, refreshToken);
@@ -55,7 +63,7 @@ export class AuthService {
     const payload = { email: user.email, sub: user.id, role: user.role };
     const accessToken = this.jwtService.sign(payload);
     const newRefreshToken = this.jwtService.sign(payload, {
-      secret: this.configService.get<string>('JWT_REFRESH_SECRET') || 'refreshSecret',
+      secret: getRequiredRefreshSecret(this.configService),
       expiresIn: '7d',
     });
     await this.usersService.updateRefreshTokenHash(user.id, newRefreshToken);
